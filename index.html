@@ -3,22 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image to ASV Converter with Compression</title>
-    <!-- Add jszip for Gzip compression -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <title>ASV Converter and Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script> <!-- For zip compression -->
 </head>
 <body>
-    <h1>Image to ASV Converter with Compression</h1>
+    <h1>ASV Image Converter and Viewer</h1>
 
+    <!-- Section for image to ASV conversion -->
+    <h2>Convert Image to ASV</h2>
     <input type="file" id="imageInput" accept="image/png, image/jpeg"><br><br>
-    <textarea id="asvOutput" rows="20" cols="100"></textarea><br><br>
-    <button onclick="downloadASV()">Download Compressed .asv File</button>
+    <textarea id="asvOutput" rows="10" cols="100"></textarea><br><br>
+    <button onclick="downloadASV()">Download Compressed .asv File</button><br><br>
+
+    <!-- Section for ASV file viewer -->
+    <h2>View ASV File</h2>
+    <input type="file" id="asvFileInput" accept=".asv"><br><br>
+    <canvas id="asvCanvas" style="border: 1px solid black;"></canvas><br><br>
+    <textarea id="asvViewerOutput" rows="10" cols="100" readonly></textarea>
 
     <script>
         // Function to convert color to base 36
         function rgbToBase36(r, g, b) {
             const color = (r << 16) + (g << 8) + b;  // Combine RGB into one number
             return color.toString(36).toUpperCase();  // Convert to base 36 and uppercase
+        }
+
+        // Function to convert base36 color to RGB values
+        function base36ToRgb(base36Color) {
+            const color = parseInt(base36Color, 36);  // Convert base-36 to a decimal number
+            const r = (color >> 16) & 255;  // Extract red
+            const g = (color >> 8) & 255;   // Extract green
+            const b = color & 255;          // Extract blue
+            return { r, g, b };
         }
 
         // Function to apply Run-Length Encoding (RLE)
@@ -104,6 +120,83 @@
                 link.click();
             });
         }
+
+        // Function to decode Run-Length Encoded (RLE) data
+        function decodeRLE(asvData) {
+            const rows = asvData.split('*');
+            const pixelData = [];
+
+            rows.forEach(row => {
+                const pixels = row.split('.');
+                const rowPixels = [];
+
+                pixels.forEach(pixel => {
+                    // Check for RLE pattern like "3xAB12" (3 times of AB12)
+                    const match = pixel.match(/^(\d+)x(.+)$/);
+                    if (match) {
+                        const count = parseInt(match[1]);
+                        const value = match[2];
+                        for (let i = 0; i < count; i++) {
+                            rowPixels.push(value);
+                        }
+                    } else {
+                        rowPixels.push(pixel);
+                    }
+                });
+
+                pixelData.push(rowPixels);
+            });
+
+            return pixelData;
+        }
+
+        // Function to draw pixel data on canvas
+        function drawASVToCanvas(pixelData, width, height) {
+            const canvas = document.getElementById('asvCanvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = width;
+            canvas.height = height;
+
+            const imageData = ctx.createImageData(width, height);
+
+            let pixelIndex = 0;
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const base36Color = pixelData[y][x];
+                    const { r, g, b } = base36ToRgb(base36Color);
+
+                    // Assign RGB values to the pixel in the ImageData object
+                    const index = (y * width + x) * 4;
+                    imageData.data[index] = r;
+                    imageData.data[index + 1] = g;
+                    imageData.data[index + 2] = b;
+                    imageData.data[index + 3] = 255;  // Alpha channel (fully opaque)
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        // Handle ASV file upload and rendering
+        document.getElementById('asvFileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const asvData = e.target.result;
+                document.getElementById('asvViewerOutput').value = asvData;  // Display the raw .asv data in the textarea
+
+                // Decode and render the ASV data
+                const pixelData = decodeRLE(asvData);
+                const width = pixelData[0].length;  // Number of pixels in the first row
+                const height = pixelData.length;    // Number of rows (height of the image)
+
+                drawASVToCanvas(pixelData, width, height);
+            };
+
+            reader.readAsText(file);
+        });
     </script>
 </body>
 </html>
