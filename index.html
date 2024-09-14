@@ -3,20 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image to ASV Converter</title>
+    <title>Image to ASV Converter with Compression</title>
+    <!-- Add jszip for Gzip compression -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
 </head>
 <body>
-    <h1>Image to ASV Converter</h1>
+    <h1>Image to ASV Converter with Compression</h1>
 
     <input type="file" id="imageInput" accept="image/png, image/jpeg"><br><br>
     <textarea id="asvOutput" rows="20" cols="100"></textarea><br><br>
-    <button onclick="downloadASV()">Download .asv File</button>
+    <button onclick="downloadASV()">Download Compressed .asv File</button>
 
     <script>
         // Function to convert color to base 36
         function rgbToBase36(r, g, b) {
             const color = (r << 16) + (g << 8) + b;  // Combine RGB into one number
             return color.toString(36).toUpperCase();  // Convert to base 36 and uppercase
+        }
+
+        // Function to apply Run-Length Encoding (RLE)
+        function applyRLE(asvData) {
+            const rows = asvData.split('*');
+            let compressedData = [];
+
+            rows.forEach(row => {
+                const pixels = row.split('.');
+                let compressedRow = [];
+                let lastPixel = pixels[0];
+                let count = 1;
+
+                for (let i = 1; i < pixels.length; i++) {
+                    if (pixels[i] === lastPixel) {
+                        count++;
+                    } else {
+                        compressedRow.push(count > 1 ? `${count}x${lastPixel}` : lastPixel);
+                        lastPixel = pixels[i];
+                        count = 1;
+                    }
+                }
+                compressedRow.push(count > 1 ? `${count}x${lastPixel}` : lastPixel);
+                compressedData.push(compressedRow.join('.'));
+            });
+
+            return compressedData.join('*');
         }
 
         // Handle image upload and conversion
@@ -52,20 +81,28 @@
                         asvData += row.join('.') + '*';  // Join pixels by dots and end row with *
                     }
 
-                    document.getElementById('asvOutput').value = asvData.slice(0, -1); // Remove last asterisk
+                    // Apply RLE compression
+                    const compressedData = applyRLE(asvData.slice(0, -1)); // Remove last asterisk
+                    document.getElementById('asvOutput').value = compressedData;
                 };
             };
             reader.readAsDataURL(file);
         });
 
-        // Function to download ASV file as application/octet-stream
+        // Function to download compressed ASV file
         function downloadASV() {
             const asvText = document.getElementById('asvOutput').value;
-            const blob = new Blob([asvText], { type: 'application/octet-stream' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'image.asv';
-            link.click();
+
+            // Use JSZip to compress the file (Gzip style)
+            const zip = new JSZip();
+            zip.file("image.asv", asvText);
+
+            zip.generateAsync({ type: "blob" }).then(function(content) {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = 'image.asv.zip';
+                link.click();
+            });
         }
     </script>
 </body>
