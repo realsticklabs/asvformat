@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image to ASV Converter</title>
+</head>
+<body>
+    <h1>Image to ASV Converter</h1>
+
+    <input type="file" id="imageInput" accept="image/png, image/jpeg"><br><br>
+    <textarea id="asvOutput" rows="20" cols="100"></textarea><br><br>
+    <button onclick="downloadASV()">Download .asv File</button>
+
+    <script>
+        // Function to convert color to base 36
+        function rgbToBase36(r, g, b) {
+            const color = (r << 16) + (g << 8) + b;  // Combine RGB into one number
+            return color.toString(36).toUpperCase();  // Convert to base 36 and uppercase
+        }
+
+        // Handle image upload and conversion
+        document.getElementById('imageInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.src = e.target.result;
+
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const pixels = imageData.data;
+                    let asvData = '';
+
+                    for (let y = 0; y < canvas.height; y++) {
+                        let row = [];
+                        for (let x = 0; x < canvas.width; x++) {
+                            const index = (y * canvas.width + x) * 4;
+                            const r = pixels[index];
+                            const g = pixels[index + 1];
+                            const b = pixels[index + 2];
+                            row.push(rgbToBase36(r, g, b));
+                        }
+                        asvData += row.join('.') + '*';  // Join pixels by dots and end row with *
+                    }
+
+                    document.getElementById('asvOutput').value = asvData.slice(0, -1); // Remove last asterisk
+                };
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Function to download ASV file as application/octet-stream
+        function downloadASV() {
+            const asvText = document.getElementById('asvOutput').value;
+            const blob = new Blob([asvText], { type: 'application/octet-stream' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'image.asv';
+            link.click();
+        }
+    </script>
+</body>
+</html>
