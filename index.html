@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ASV Converter and Viewer</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script> <!-- For zip compression -->
 </head>
 <body>
     <h1>ASV Image Converter and Viewer</h1>
@@ -13,7 +12,9 @@
     <h2>Convert Image to ASV</h2>
     <input type="file" id="imageInput" accept="image/png, image/jpeg"><br><br>
     <textarea id="asvOutput" rows="10" cols="100"></textarea><br><br>
-    <button onclick="downloadASV()">Download Compressed .asv File</button><br><br>
+    <label for="asvFilename">Enter file name (without extension):</label>
+    <input type="text" id="asvFilename" placeholder="image_name"><br><br>
+    <button onclick="downloadASV()">Download .asv File</button><br><br>
 
     <!-- Section for ASV file viewer -->
     <h2>View ASV File</h2>
@@ -105,20 +106,15 @@
             reader.readAsDataURL(file);
         });
 
-        // Function to download compressed ASV file
+        // Function to download ASV file directly
         function downloadASV() {
             const asvText = document.getElementById('asvOutput').value;
-
-            // Use JSZip to compress the file (Gzip style)
-            const zip = new JSZip();
-            zip.file("image.asv", asvText);
-
-            zip.generateAsync({ type: "blob" }).then(function(content) {
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(content);
-                link.download = 'image.asv.zip';
-                link.click();
-            });
+            const fileName = document.getElementById('asvFilename').value || 'image';  // Get the filename or use 'image' as default
+            const blob = new Blob([asvText], { type: 'text/plain' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName + '.asv';  // Add the .asv extension
+            link.click();
         }
 
         // Function to decode Run-Length Encoded (RLE) data
@@ -159,7 +155,6 @@
 
             const imageData = ctx.createImageData(width, height);
 
-            let pixelIndex = 0;
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {
                     const base36Color = pixelData[y][x];
